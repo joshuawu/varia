@@ -1,25 +1,26 @@
-type Subscription<T> = (state: T) => void | Promise<void>
-type Func = (...args: any[]) => any
-export type Actions = { [key: string]: Func }
-type Action<T extends Actions> = ReturnType<T[keyof T]>
-export type Update<S, A extends Actions> = {
-  [K in keyof A]: (...args: Parameters<A[K]>) => Promise<S>
+type Subscription<S> = (state: S) => void | Promise<void>
+type Reduce<S> = (state: S, ...data: any[]) => S
+type Update<S, R> = R extends (state: S, ...data: infer D) => S
+  ? (...data: D) => Promise<S>
+  : never
+export type Reducer<S> = { [key: string]: Reduce<S> }
+export type Updater<S, R extends Reducer<S>> = {
+  [K in keyof R]: Update<S, R[K]>
 }
-export type Reduce<S, A extends Actions> = (state: S, action: Action<A>) => S
 
-export class Store<S, A extends Actions> {
+const isPromise = <T>(value: T | Promise<T>): value is Promise<T> =>
+  "then" in value && typeof value.then === "function"
+
+export class Store<S, R extends Reducer<S>> {
   private subscriptions: Set<Subscription<S>> = new Set()
-  readonly update: Update<S, A>
+  readonly update: Updater<S, R>
 
-  constructor(
-    private state: S | Promise<S>,
-    actions: A,
-    private reduce: Reduce<S, A>,
-  ) {
-    this.verify(actions)
-    this.update = mapObject<Func, A, Func>(actions, action => (...args) =>
-      this.dispatch(action.apply(undefined, args)),
-    )
+  constructor(private state: S | Promise<S>, reduce: R) {
+    this.update = {} as Updater<S, R>
+    Object.keys(reduce).forEach(key => {
+      this.update[key] = ((...data) =>
+        this.dispatch(reduce[key], data)) as Update<S, R[typeof key]>
+    })
   }
 
   readonly subscribe = (
@@ -34,56 +35,16 @@ export class Store<S, A extends Actions> {
     return { unsubscribe }
   }
 
-  private async dispatch(action: Action<A>): Promise<S> {
+  private async dispatch(fn: Reduce<S>, ...data: any[]): Promise<S> {
     if (isPromise(this.state)) {
-      this.state = this.state.then(s => this.reduce(s, action))
+      this.state = this.state.then(s => fn(s, ...data))
       await this.state.then(s =>
         Promise.all(Array.from(this.subscriptions, sub => sub(s))),
       )
     } else {
-      this.state = this.reduce(this.state, action)
+      this.state = fn(this.state, ...data)
       this.subscriptions.forEach(sub => sub(this.state as S))
     }
     return this.state
   }
-
-  private verify(actions: A): void {
-    Object.keys(actions).forEach(propKey => {
-      const actionKey = actions[propKey]().key
-      if (propKey !== actionKey) {
-        throw new Error(
-          `The property name "${propKey}" of the provided actions object does not match its ` +
-            `corresponding action key "${actionKey}".`,
-        )
-      }
-    })
-  }
 }
-
-interface Act<K> {
-  key: K
-}
-
-interface OptAct<K, O extends object> extends Act<K> {
-  opts: O
-}
-
-export function action<K>(key: K): () => Act<K>
-export function action<K, O extends object>(key: K): (opts: O) => OptAct<K, O>
-export function action(key: any) {
-  return (opts: any) => (opts ? { key, opts } : { key })
-}
-
-function mapObject<V0, T extends { [key: string]: V0 }, V1>(
-  obj: T,
-  fn: (v: V0) => V1,
-): { [K in keyof T]: V1 } {
-  const ret = {} as { [K in keyof T]: V1 }
-  Object.keys(obj).forEach(key => {
-    ret[key] = fn(obj[key])
-  })
-  return ret
-}
-
-const isPromise = <T>(value: T | Promise<T>): value is Promise<T> =>
-  "then" in value && typeof value.then === "function"

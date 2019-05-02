@@ -39,23 +39,7 @@ export class Varia<S, R extends Reducer<S>> extends React.Component<
   }
 }
 
-export const makeApp = <S, R extends Reducer<S>>(args: {
-  init: S | Promise<S>
-  reduce: R
-}): {
-  Provider: (props: {
-    render: (state: S, update: Updater<S, R>) => React.ReactNode
-  }) => React.ReactElement<Varia<S, R>>
-  updateApp: Updater<S, R>
-} => {
-  const store = new Store(args.init, args.reduce)
-  return {
-    Provider: ({ render }) => <Varia getStore={() => store} render={render} />,
-    updateApp: store.update,
-  }
-}
-
-export const make = <P extends object, S, R extends Reducer<S>>(args: {
+export const varia = <P extends object, S, R extends Reducer<S>>(args: {
   init: S | ((props: P) => S)
   reduce: R
   render: (props: P, state: S, update: Updater<S, R>) => React.ReactNode
@@ -73,14 +57,30 @@ export const make = <P extends object, S, R extends Reducer<S>>(args: {
   />
 )
 
-export const makeAsync = <P extends object, S, R extends Reducer<S>>(args: {
-  initialize: (props: P) => Promise<S>
+export const variaApp = <S, R extends Reducer<S>>(args: {
+  init: S | Promise<S>
+  reduce: R
+}): {
+  VariaApp: (props: {
+    render: (state: S, update: Updater<S, R>) => React.ReactNode
+  }) => React.ReactElement<Varia<S, R>>
+  updateApp: Updater<S, R>
+} => {
+  const store = new Store(args.init, args.reduce)
+  return {
+    VariaApp: ({ render }) => <Varia getStore={() => store} render={render} />,
+    updateApp: store.update,
+  }
+}
+
+export const variaLoader = <P extends object, S, R extends Reducer<S>>(args: {
+  init: (props: P) => Promise<S>
   reduce: R
   render: (props: P, state: S, update: Updater<S, R>) => React.ReactNode
   renderLoader?: (props: P) => React.ReactNode
 }): ((props: P) => React.ReactElement<Varia<S, R>>) => props => (
   <Varia
-    getStore={() => new Store(args.initialize(props), args.reduce)}
+    getStore={() => new Store(args.init(props), args.reduce)}
     render={(state, update) => args.render(props, state, update)}
     loader={args.renderLoader && args.renderLoader(props)}
   />

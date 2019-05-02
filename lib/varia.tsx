@@ -39,21 +39,27 @@ export class Varia<S, R extends Reducer<S>> extends React.Component<
   }
 }
 
+function isInitializer<P extends object, S>(
+  value: S | Promise<S> | ((props: P) => S | Promise<S>),
+): value is (props: P) => S | Promise<S> {
+  return typeof value === "function"
+}
+
 export const varia = <P extends object, S, R extends Reducer<S>>(args: {
-  init: S | ((props: P) => S)
+  init: S | Promise<S> | ((props: P) => S | Promise<S>)
   reduce: R
   render: (props: P, state: S, update: Updater<S, R>) => React.ReactNode
+  renderLoader?: (props: P) => React.ReactNode
 }): ((props: P) => React.ReactElement<Varia<S, R>>) => props => (
   <Varia
     getStore={() =>
       new Store(
-        typeof args.init === "function"
-          ? (args.init as (props: P) => S)(props)
-          : args.init,
+        isInitializer(args.init) ? args.init(props) : args.init,
         args.reduce,
       )
     }
     render={(state, update) => args.render(props, state, update)}
+    loader={args.renderLoader && args.renderLoader(props)}
   />
 )
 
@@ -72,16 +78,3 @@ export const variaApp = <S, R extends Reducer<S>>(args: {
     updateApp: store.update,
   }
 }
-
-export const variaLoader = <P extends object, S, R extends Reducer<S>>(args: {
-  init: (props: P) => Promise<S>
-  reduce: R
-  render: (props: P, state: S, update: Updater<S, R>) => React.ReactNode
-  renderLoader?: (props: P) => React.ReactNode
-}): ((props: P) => React.ReactElement<Varia<S, R>>) => props => (
-  <Varia
-    getStore={() => new Store(args.init(props), args.reduce)}
-    render={(state, update) => args.render(props, state, update)}
-    loader={args.renderLoader && args.renderLoader(props)}
-  />
-)

@@ -1,6 +1,6 @@
 {
   "name": "varia",
-  "version": "1.0.4",
+  "version": "2.0.0",
   "description": "Modular state management. Supports ReactJS.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

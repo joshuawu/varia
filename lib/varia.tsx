@@ -2,6 +2,7 @@ import React from "react"
 import { Store, Updater, Reducer } from "./store"
 
 export * from "./state"
+export const VariaStore = Store
 
 interface Props<S, R extends Reducer<S>> {
   getStore: () => Store<S, R>

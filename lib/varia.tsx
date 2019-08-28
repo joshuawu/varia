@@ -67,14 +67,14 @@ export const variaApp = <S, R extends Reducer<S>>(args: {
   init: S | Promise<S>
   reduce: R
 }): {
-  VariaApp: (props: {
-    render: (state: S, update: Updater<S, R>) => React.ReactNode
-  }) => React.ReactElement<Varia<S, R>>
-  updateApp: Updater<S, R>
+  render: (
+    render: (state: S, update: Updater<S, R>) => React.ReactNode,
+  ) => React.ReactElement<Varia<S, R>>
+  update: Updater<S, R>
 } => {
   const store = new Store(args.init, args.reduce)
   return {
-    VariaApp: ({ render }) => <Varia getStore={() => store} render={render} />,
-    updateApp: store.update,
+    render: render => <Varia getStore={() => store} render={render} />,
+    update: store.update,
   }
 }
